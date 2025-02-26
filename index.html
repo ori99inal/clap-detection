@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>응원 이벤트</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            padding: 50px;
+            background-color: #f0f8ff;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+        h1 {
+            color: #FF6347;
+            font-size: 50px;
+            animation: moveText 0.5s infinite alternate;
+        }
+        @keyframes moveText {
+            0% { transform: translateX(-50px); }
+            100% { transform: translateX(50px); }
+        }
+        #result, #decibelDisplay {
+            font-size: 24px;
+            margin-top: 20px;
+            font-weight: bold;
+        }
+        #score {
+            font-size: 32px;
+            color: green;
+            margin-top: 20px;
+            font-weight: bold;
+        }
+        #countdown {
+            font-size: 48px;
+            color: red;
+            font-weight: bold;
+            margin-top: 20px;
+        }
+        #startButton, #retryButton {
+            padding: 10px 20px;
+            font-size: 20px;
+            cursor: pointer;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            transition: transform 0.2s, background-color 0.2s;
+            margin-top: 20px;
+        }
+        #startButton:active, #retryButton:active {
+            transform: scale(0.95);
+            background-color: #388E3C;
+        }
+        #scoreAnimation {
+            display: none;
+            font-size: 40px;
+            color: gold;
+            font-weight: bold;
+        }
+        #countdownNumbers {
+            font-size: 72px;
+            color: blue;
+            font-weight: bold;
+        }
+        #retryButton {
+            background-color: #f44336;
+        }
+    </style>
+</head>
+<body>
+    <h1>여러분들의 동료를 위해 더 힘차게 응원해주세요!</h1>
+    <p>버튼을 눌러 응원 소리를 감지하고 점수를 계산하세요!</p>
+
+    <button id="startButton">응원 시작</button>
+    <button id="retryButton" style="display:none;">다시 도전</button>
+
+    <div id="countdownNumbers"></div>
+    <div id="countdown"></div>
+    <div id="result"></div>
+    <div id="decibelDisplay"></div>
+    <div id="scoreAnimation">응원 점수 공개!</div>
+    <div id="score"></div>
+
+    <script>
+        let audioContext, analyser, microphone;
+        let mediaStream = null;
+        const THRESHOLD = 50; // 데시벨 임계값
+        let score = 0;
+        let timer = 10; // 10초 카운트다운
+        let countdownStart = 3; // 카운트다운 시작 숫자
+        let decibelArray = [];
+        let detectionActive = false;
+
+        // 초기화
+        function resetUI() {
+            document.getElementById("startButton").style.display = 'block';
+            document.getElementById("retryButton").style.display = 'none';
+            document.getElementById("countdownNumbers").innerText = '';
+            document.getElementById("countdown").innerText = '';
+            document.getElementById("result").innerText = '';
+            document.getElementById("decibelDisplay").innerText = '';
+            document.getElementById("score").innerText = '';
+            document.getElementById("scoreAnimation").style.display = 'none';
+            score = 0;
+            if (audioContext) {
+                audioContext.close();
+            }
+            decibelArray = [];
+            detectionActive = false;
+        }
+
+        // 마이크 권한 요청
+        function getMicrophone() {
+            navigator.mediaDevices.getUserMedia({ audio: true })
+                .then(function(stream) {
+                    mediaStream = stream;
+                    setupAudioContext();
+                    startCountdown();  // 마이크 권한 허용 후 3, 2, 1 카운트다운 시작
+                })
+                .catch(function(error) {
+                    alert("마이크 권한을 허용해주세요.");
+                });
+        }
+
+        // 오디오 컨텍스트 설정
+        function setupAudioContext() {
+            audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            analyser = audioContext.createAnalyser();
+            microphone = audioContext.createMediaStreamSource(mediaStream);
+            microphone.connect(analyser);
+            analyser.fftSize = 256;
+            let bufferLength = analyser.frequencyBinCount;
+            let dataArray = new Uint8Array(bufferLength);
+
+            // 데시벨 측정
+            function updateDecibel() {
+                if (!detectionActive) return;
+
+                analyser.getByteFrequencyData(dataArray);
+                let sum = 0;
+                for (let i = 0; i < dataArray.length; i++) {
+                    sum += dataArray[i];
+                }
+                let avg = sum / dataArray.length;
+                decibelArray.push(avg);
+                document.getElementById("decibelDisplay").innerText = `현재 데시벨: ${avg} dB`; // 데시벨 단위 추가
+            }
+
+            setInterval(updateDecibel, 100); // 100ms마다 데시벨 측정
+        }
+
+        // 카운트다운 시작
+        function startCountdown() {
+            countdownStart = 3;
+            const interval = setInterval(() => {
+                if (countdownStart > 0) {
+                    document.getElementById("countdownNumbers").innerText = countdownStart--;
+                } else {
+                    document.getElementById("countdownNumbers").innerText = "시작!";
+                    setTimeout(() => {
+                        document.getElementById("countdownNumbers").innerText = "";
+                        startDetection(); // 카운트다운 끝난 후 응원 소리 감지 시작
+                    }, 1000);
+                    clearInterval(interval);
+                }
+            }, 1000);
+        }
+
+        // 응원 소리 감지 시작 (카운트다운 후)
+        function startDetection() {
+            detectionActive = true;
+            timer = 10; // 10초 동안 감지 시작
+            const countdownInterval = setInterval(() => {
+                if (timer > 0) {
+                    document.getElementById("countdown").innerText = --timer;
+                } else {
+                    clearInterval(countdownInterval);
+                    endDetection(); // 10초가 끝나면 감지 종료
+                }
+            }, 1000);
+        }
+
+        // 점수 계산
+        function calculateScore() {
+            const averageDecibel = decibelArray.reduce((a, b) => a + b, 0) / decibelArray.length;
+            score = Math.round(averageDecibel);
+            displayScore();
+        }
+
+        // 점수 및 메시지 표시
+        function displayScore() {
+            document.getElementById("scoreAnimation").style.display = 'block';
+            setTimeout(() => {
+                document.getElementById("scoreAnimation").style.display = 'none';
+                document.getElementById("score").innerText = `${score} 점!`;
+                let message = "";
+                if (score < 30) {
+                    message = "동료를 위한 응원이 부족해요~~! 다시 도전해볼까요?";
+                } else if (score < 50) {
+                    message = "응원이 조금 더 필요해요! 다음엔 더 크게 응원해요!";
+                } else {
+                    message = "와우! 정말 큰 응원입니다!! 잘 했어요!";
+                }
+                document.getElementById("result").innerText = message;
+                document.getElementById("retryButton").style.display = 'block';
+            }, 1000);
+        }
+
+        // 감지 종료
+        function endDetection() {
+            detectionActive = false;
+            calculateScore();
+            document.getElementById("startButton").style.display = 'none';
+            document.getElementById("countdownNumbers").style.display = 'none';
+            document.getElementById("decibelDisplay").style.display = 'none';
+            document.getElementById("countdown").style.display = 'none';
+        }
+
+        // 다시 도전 클릭 시 초기화
+        document.getElementById("retryButton").onclick = resetUI;
+
+        // 응원 시작 버튼 클릭 시
+        document.getElementById("startButton").onclick = function() {
+            getMicrophone();  // 마이크 권한 요청
+            document.getElementById("startButton").style.display = 'none';
+        };
+
+        resetUI(); // 초기화
+    </script>
+</body>
+</html>
