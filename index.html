@@ -25,7 +25,7 @@
             0% { transform: translateX(-50px); }
             100% { transform: translateX(50px); }
         }
-        #result, #decibelDisplay {
+        #result {
             font-size: 24px;
             margin-top: 20px;
             font-weight: bold;
@@ -75,7 +75,7 @@
 </head>
 <body>
     <h1>여러분들의 동료를 위해 더 힘차게 응원해주세요!</h1>
-    <p>버튼을 눌러 응원 소리를 감지하고 점수를 계산하세요!</p>
+    <p>응원 소리를 감지하고 점수를 계산하세요!</p>
 
     <button id="startButton">응원 시작</button>
     <button id="retryButton" style="display:none;">다시 도전</button>
@@ -83,7 +83,6 @@
     <div id="countdownNumbers"></div>
     <div id="countdown"></div>
     <div id="result"></div>
-    <div id="decibelDisplay"></div>
     <div id="scoreAnimation">응원 점수 공개!</div>
     <div id="score"></div>
 
@@ -104,7 +103,6 @@
             document.getElementById("countdownNumbers").innerText = '';
             document.getElementById("countdown").innerText = '';
             document.getElementById("result").innerText = '';
-            document.getElementById("decibelDisplay").innerText = '';
             document.getElementById("score").innerText = '';
             document.getElementById("scoreAnimation").style.display = 'none';
             score = 0;
@@ -149,7 +147,6 @@
                 }
                 let avg = sum / dataArray.length;
                 decibelArray.push(avg);
-                document.getElementById("decibelDisplay").innerText = `현재 데시벨: ${avg} dB`; // 데시벨 단위 추가
             }
 
             setInterval(updateDecibel, 100); // 100ms마다 데시벨 측정
@@ -194,18 +191,27 @@
         }
 
         // 점수 및 메시지 표시
-        function displayScore() {
+function displayScore() {
             document.getElementById("scoreAnimation").style.display = 'block';
             setTimeout(() => {
                 document.getElementById("scoreAnimation").style.display = 'none';
                 document.getElementById("score").innerText = `${score} 점!`;
                 let message = "";
-                if (score < 30) {
-                    message = "동료를 위한 응원이 부족해요~~! 다시 도전해볼까요?";
+
+                if (score < 10) {
+                    message = "응원이 너무 약해요! 더 크게 응원해주세요!";
+                } else if (score < 20) {
+                    message = "응원이 아직 부족해요. 조금 더 힘을 내주세요!";
+                } else if (score < 30) {
+                    message = "응원이 필요하지만, 좋은 시작이에요! 다음엔 더 크게 응원해봐요!";
+                } else if (score < 40) {
+                    message = "좋은 응원이에요! 좀 더 크게 해주면 더 좋겠어요!";
                 } else if (score < 50) {
-                    message = "응원이 조금 더 필요해요! 다음엔 더 크게 응원해요!";
+                    message = "잘했어요! 거의 완벽한 응원이에요, 조금만 더 힘을 내보세요!";
+                } else if (score < 60) {
+                    message = "정말 멋진 응원이었어요! 큰 응원을 보내주셨네요!";
                 } else {
-                    message = "와우! 정말 큰 응원입니다!! 잘 했어요!";
+                    message = "최고의 응원이었어요! 정말 대단한 응원입니다!";
                 }
                 document.getElementById("result").innerText = message;
                 document.getElementById("retryButton").style.display = 'block';
@@ -218,7 +224,6 @@
             calculateScore();
             document.getElementById("startButton").style.display = 'none';
             document.getElementById("countdownNumbers").style.display = 'none';
-            document.getElementById("decibelDisplay").style.display = 'none';
             document.getElementById("countdown").style.display = 'none';
         }
 
