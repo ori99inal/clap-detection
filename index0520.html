@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI GAME AWARDS</title>
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet" />
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background-color: #000;
+      font-family: 'Press Start 2P', cursive;
+      color: #FFEB3B;
+      text-align: center;
+      padding: 30px;
+      background-image: radial-gradient(#111 1px, transparent 1px);
+      background-size: 12px 12px;
+    }
+    h1 {
+      font-size: 20px;
+      margin-bottom: 10px;
+      color: #FFEB3B;
+      letter-spacing: 2px;
+    }
+    h2 {
+      font-size: 14px;
+      margin-bottom: 30px;
+      color: #FF3D00;
+    }
+    p {
+      font-size: 12px;
+      margin-bottom: 30px;
+      color: #90CAF9;
+    }
+
+    .button-container {
+      display: flex;
+      justify-content: center;
+      gap: 20px;
+      margin-top: 30px;
+    }
+
+    #retryButton {
+      display: none;
+      margin-top: 20px;
+    }
+
+    button {
+      font-family: 'Press Start 2P', cursive;
+      background: #000;
+      border: 3px solid #FFEB3B;
+      color: #FFEB3B;
+      padding: 10px 20px;
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    button:hover {
+      background: #FFEB3B;
+      color: #000;
+    }
+
+    #countdown {
+      font-size: 36px;
+      color: #00E676;
+      margin: 20px 0;
+    }
+
+    #scoreAnimation {
+      font-size: 20px;
+      color: #FF4081;
+      margin-top: 20px;
+      animation: flicker 0.5s infinite;
+    }
+
+    #score {
+      font-size: 32px;
+      color: #FFC107;
+      margin-top: 10px;
+    }
+
+    #result {
+      font-size: 12px;
+      color: #FFFFFF;
+      background-color: #333;
+      padding: 10px;
+      border: 2px dashed #FFEB3B;
+      width: 80%;
+      max-width: 500px;
+      margin: 20px auto;
+    }
+
+    @keyframes flicker {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+  </style>
+</head>
+<body>
+  <h1>AI GAME AWARDS</h1>
+  <h2>CHEER UP EVENT</h2>
+  <p>소리를 내고 응원 점수를 획득하세요!</p>
+
+  <div class="button-container">
+    <button id="startButton">START!</button>
+  </div>
+  <div class="button-container">
+    <button id="retryButton">RETRY!</button>
+  </div>
+
+  <div id="countdown"></div>
+  <div id="scoreAnimation" style="display:none;">SCORE TIME!</div>
+  <div id="score"></div>
+  <div id="result"></div>
+
+  <script>
+    let audioContext, analyser, microphone;
+    let mediaStream = null;
+    const THRESHOLD = 50;
+    let score = 0;
+    let timer = 5;
+
+    function resetUI() {
+      document.getElementById("startButton").style.display = 'block';
+      document.getElementById("retryButton").style.display = 'none';
+      document.getElementById("countdown").innerText = '';
+      document.getElementById("result").innerText = '';
+      document.getElementById("score").innerText = '';
+      document.getElementById("scoreAnimation").style.display = 'none';
+      score = 0;
+      if (audioContext) audioContext.close();
+    }
+
+    function startDetection() {
+      navigator.mediaDevices.getUserMedia({ audio: true })
+        .then(stream => {
+          mediaStream = stream;
+          audioContext = new (window.AudioContext || window.webkitAudioContext)();
+          analyser = audioContext.createAnalyser();
+          microphone = audioContext.createMediaStreamSource(stream);
+          microphone.connect(analyser);
+          analyser.fftSize = 256;
+          const bufferLength = analyser.frequencyBinCount;
+          const dataArray = new Uint8Array(bufferLength);
+
+          function detectSound() {
+            analyser.getByteFrequencyData(dataArray);
+            let sum = 0;
+            for (let i = 0; i < bufferLength; i++) {
+              sum += dataArray[i];
+            }
+            score = sum / bufferLength;
+            if (score > THRESHOLD) {
+              score = Math.min(score, 100);
+            }
+            requestAnimationFrame(detectSound);
+          }
+
+          detectSound();
+          startTimer();
+        })
+        .catch(err => {
+          alert('마이크 접근이 거부되었습니다. 브라우저 권한 설정을 확인해주세요.');
+          console.log(err);
+        });
+    }
+
+    function startTimer() {
+      timer = 5;
+      const countdownInterval = setInterval(() => {
+        if (timer > 0) {
+          document.getElementById("countdown").innerText = `${timer--} 초 남음`;
+        } else {
+          clearInterval(countdownInterval);
+          document.getElementById("countdown").innerText = ''; // ✅ 결과 시 남은 시간 제거
+          endDetection();
+        }
+      }, 1000);
+    }
+
+    function endDetection() {
+      if (mediaStream) {
+        mediaStream.getTracks().forEach(track => track.stop());
+      }
+      document.getElementById("countdown").innerText = ''; // ✅ 다시 한 번 보장
+      displayScore();
+    }
+
+    function displayScore() {
+      document.getElementById("scoreAnimation").style.display = 'block';
+
+      let current = 0;
+      const finalScore = Math.round(score);
+      const interval = setInterval(() => {
+        if (current >= finalScore) {
+          clearInterval(interval);
+          document.getElementById("scoreAnimation").style.display = 'none';
+          showMessage(finalScore);
+          return;
+        }
+        current += 1;
+        document.getElementById("score").innerText = `${current} 점!`;
+      }, 50);
+    }
+
+    function showMessage(score) {
+      let message = "";
+      if (score < 10) {
+        message = "응원이 너무 약해요! 더 크게!";
+      } else if (score < 30) {
+        message = "조금 더 힘을 내보세요!";
+      } else if (score < 60) {
+        message = "좋은 응원이에요! 계속해요!";
+      } else {
+        message = "최고의 응원입니다!";
+      }
+      document.getElementById("result").innerText = message;
+      document.getElementById("retryButton").style.display = 'block';
+    }
+
+    document.getElementById("startButton").onclick = () => {
+      document.getElementById("startButton").style.display = 'none';
+      startDetection();
+    };
+
+    document.getElementById("retryButton").onclick = resetUI;
+
+    resetUI();
+  </script>
+</body>
+</html>
